@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -661,6 +661,7 @@ body[data-preview="1"] #preview{display:inline-block}
             <div class="rows">
               <div class="status"><span>Phase</span><output id="rl-phase">—</output></div>
               <div class="status"><span>Phase ends in</span><output id="rl-countdown">—</output></div>
+              <div id="rl-closing-warn" style="display:none;margin-top:6px;padding:6px 10px;background:#2a1a00;border:1px solid #ff9900;border-radius:5px;color:#ff9900;font-size:0.82rem;font-weight:600;"></div>
               <div class="status"><span>Tables in world</span><output id="rl-count">—</output></div>
               <div class="status"><span>Data source</span><output id="rl-src">Not connected</output></div>
             </div>
@@ -925,9 +926,16 @@ function applyTelem(state) {
     $("rl-count").textContent = String(state.rl_count || 0);
     const pi = Number(state.rl_phase);
     $("rl-phase").textContent = (pi >= 0 && pi < phaseNames.length) ? phaseNames[pi] : "Unknown (" + pi + ")";
-    const endMs = Number(state.rl_end || 0);
-    const diff = endMs > 0 ? Math.max(0, Math.round((endMs - Date.now()) / 1000)) : -1;
+    const remMs = Number(state.rl_remaining);
+    const diff = (remMs >= 0 && remMs < 999999) ? Math.max(0, Math.round(remMs / 1000)) : -1;
     $("rl-countdown").textContent = diff >= 0 ? diff + " s" : "—";
+    const isBets = (Number(state.rl_phase) === 0);
+    const closingSoon = isBets && remMs >= 0 && remMs <= 3000;
+    const warnEl = $("rl-closing-warn");
+    if (warnEl) {
+      warnEl.style.display = closingSoon ? "" : "none";
+      warnEl.textContent = closingSoon ? ("⚡ BETS CLOSE IN " + (remMs/1000).toFixed(1) + "s — auto-bet armed") : "";
+    }
     if (rlWin >= 0 && rlWin <= 36) {
       $("rl-win-num").textContent = String(rlWin);
       const color = rlWin === 0 ? "Green" : RED_NUMS.has(rlWin) ? "Red" : "Black";

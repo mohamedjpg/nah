@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 #define BR_MAGIC 0x57444D31u
-#define BR_VERSION 16u
+#define BR_VERSION 17u
 #define BR_COLOR_COUNT 15
 
 /* Shared schema for the WebView, defaults and on-disk settings.
@@ -85,6 +85,7 @@ typedef struct BR_Config {
     int telem_roulette_winning;      /* -1 = not revealed, 0-36 = pocket       */
     int telem_roulette_phase;        /* 0=Bets 1=Rolling 2=Dolly 3=Reward -1=? */
     int64_t telem_roulette_phase_end;/* server Unix-ms when current phase ends  */
+    int32_t telem_roulette_remaining;/* ms left in current phase (-1=unknown)  */
 
     /* Roulette auto-bet config (set by HTML, consumed by fast-poll thread). */
     int bet_enabled;    /* 0=off, 1=on                                        */

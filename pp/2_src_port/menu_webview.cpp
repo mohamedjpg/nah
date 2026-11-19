@@ -1,4 +1,4 @@
-﻿/* menu_webview.cpp - WebView2 host for the embedded HTML settings menu.
+/* menu_webview.cpp - WebView2 host for the embedded HTML settings menu.
  *
  * A dedicated window thread hosts the page compiled into app.rc. BR_Config
  * provides settings shared with the overlay. Messages are strings:
@@ -111,6 +111,7 @@ static std::string build_telem_json(BR_Config* b) {
     jcat_int(s,"rl_count",b->telem_roulette_count);
     jcat_int(s,"rl_win",b->telem_roulette_winning);
     jcat_int(s,"rl_phase",b->telem_roulette_phase);
+    jcat_int(s,"rl_remaining",b->telem_roulette_remaining);
     /* phase_end as a double (ms timestamp) to avoid int overflow in JS. */
     char pebuf[64];
     snprintf(pebuf, sizeof(pebuf), ",\"rl_end\":%.0f",
@@ -370,6 +371,12 @@ static DWORD WINAPI menu_thread(LPVOID){
     DWORD last_roulette=0;
     int32_t last_win_seen = -1;   /* track last seen WinningNumber for instant push */
     DWORD shown_at = 0;
+    /* Server-time calibration for hyper-fast end-of-Bets-phase polling. */
+    int      srv_calibrated = 0;        /* 1 once we have a valid offset          */
+    int64_t  srv_offset_ms  = 0;        /* server_ms - local_ms (GetTickCount64)  */
+    int64_t  srv_phase_end  = 0;        /* cached phase_end_ms for current round  */
+    int32_t  last_phase_seen = -1;      /* detect phase transitions               */
+    DWORD    hyper_last = 0;            /* GetTickCount of last hyper-poll        */
 
     MSG msg; ZeroMemory(&msg,sizeof(msg));
     while(msg.message!=WM_QUIT && !g_quit){
@@ -399,47 +406,95 @@ static DWORD WINAPI menu_thread(LPVOID){
             if (g_ctl) g_ctl->put_IsVisible(FALSE);
             menu_failed("wait for embedded menu", HRESULT_FROM_WIN32(ERROR_TIMEOUT));
         }
-        /* Fast roulette poll every 50 ms — sends an immediate telem push the
-         * instant WinningNumber flips from -1 so the UI updates before bets
-         * close, well ahead of the 500 ms regular tick. */
-        if (g_wv && b->telem_game_pid && now - last_roulette > 50) {
-            last_roulette = now;
-            uint64_t wem = game_world_addr();
-            if (wem) {
-                RR_ROULETTE rlt;
-                if (rr_roulette_read(wem, &rlt)) {
-                    b->telem_roulette_valid     = rlt.valid;
-                    b->telem_roulette_count     = rlt.roulette_count;
-                    b->telem_roulette_winning   = rlt.winning_number;
-                    b->telem_roulette_phase     = rlt.phase_index;
-                    b->telem_roulette_phase_end = rlt.phase_end_ms;
-                    /* Instant push when number just became known (was -1, now 0-36). */
-                    if (rlt.winning_number >= 0 && rlt.winning_number <= 36 &&
-                        last_win_seen < 0 && g_wv) {
-                        wv_send("telem:" + build_telem_json(b));
-                        /* Auto-bet: fire immediately on the same tick. */
-                        if (b->bet_enabled && b->bet_last_win != rlt.winning_number) {
-                            uint64_t lp = rr_local_player();
-                            int32_t char_id = 0;
-                            if (lp) {
-                                int32_t tmp = rr_i32(lp + 0x38u);
-                                if (rr_ok()) char_id = tmp;
+        /* Roulette fast-poll.
+         * Normal cadence: 50 ms.
+         * Hyper cadence:  5 ms when in Bets phase with <= 2000 ms remaining.
+         *
+         * Server-time calibration: when phase transitions to Bets we record
+         *   srv_offset_ms = phase_end_ms - GetTickCount64()
+         * and from then on:
+         *   remaining_ms  = srv_phase_end - (GetTickCount64() + srv_offset_ms)
+         *
+         * This turns phase_end_ms into a local-clock deadline without needing
+         * any extra game reads.
+         */
+        {
+            ULONGLONG local_now64 = GetTickCount64();
+            /* Determine effective poll interval. */
+            DWORD poll_interval = 50;
+            if (srv_calibrated && srv_phase_end > 0 && last_phase_seen == 0) {
+                int64_t remaining = srv_phase_end - (int64_t)(local_now64 + (ULONGLONG)srv_offset_ms);
+                if (remaining <= 2000) poll_interval = 5;
+            }
+            if (g_wv && b->telem_game_pid && (now - last_roulette > poll_interval ||
+                (poll_interval == 5 && now - hyper_last >= 5))) {
+                last_roulette = now;
+                if (poll_interval == 5) hyper_last = now;
+                uint64_t wem = game_world_addr();
+                if (wem) {
+                    RR_ROULETTE rlt;
+                    if (rr_roulette_read(wem, &rlt)) {
+                        b->telem_roulette_valid     = rlt.valid;
+                        b->telem_roulette_count     = rlt.roulette_count;
+                        b->telem_roulette_winning   = rlt.winning_number;
+                        b->telem_roulette_phase     = rlt.phase_index;
+                        b->telem_roulette_phase_end = rlt.phase_end_ms;
+
+                        /* Phase-transition tracking and server-time calibration. */
+                        if (rlt.phase_index != last_phase_seen) {
+                            if (rlt.phase_index == 0) {
+                                /* Entered Bets phase: calibrate server offset. */
+                                if (rlt.phase_end_ms > 0) {
+                                    srv_offset_ms  = (int64_t)rlt.phase_end_ms - (int64_t)local_now64;
+                                    srv_phase_end  = rlt.phase_end_ms;
+                                    srv_calibrated = 1;
+                                }
                             }
-                            if (char_id) {
-                                RR_BET_CONFIG bc;
-                                bc.enabled    = 1;
-                                bc.chip_index = b->bet_chip;
-                                bc.repeat     = (b->bet_count >= 1 && b->bet_count <= 20) ? b->bet_count : 1;
-                                bc.mode       = (b->bet_mode  >= 0 && b->bet_mode  <= 2)  ? b->bet_mode  : 0;
-                                if (rr_roulette_place_bet(wem, rlt.winning_number, &bc, char_id))
-                                    b->bet_last_win = rlt.winning_number;
+                            last_phase_seen = rlt.phase_index;
+                        } else if (rlt.phase_index == 0 && rlt.phase_end_ms != srv_phase_end && rlt.phase_end_ms > 0) {
+                            /* phase_end_ms updated mid-Bets (shouldn't happen but keep in sync). */
+                            srv_offset_ms = (int64_t)rlt.phase_end_ms - (int64_t)local_now64;
+                            srv_phase_end = rlt.phase_end_ms;
+                        }
+
+                        /* Store remaining ms for HTML countdown. */
+                        {
+                            int64_t rem = -1;
+                            if (srv_calibrated && srv_phase_end > 0) {
+                                rem = srv_phase_end - (int64_t)(local_now64 + (ULONGLONG)srv_offset_ms);
+                                if (rem < 0) rem = 0;
+                                if (rem > 999999) rem = -1;
+                            }
+                            b->telem_roulette_remaining = (int32_t)rem;
+                        }
+
+                        /* Instant push + auto-bet when number just became known. */
+                        if (rlt.winning_number >= 0 && rlt.winning_number <= 36 &&
+                            last_win_seen < 0 && g_wv) {
+                            wv_send("telem:" + build_telem_json(b));
+                            if (b->bet_enabled && b->bet_last_win != rlt.winning_number) {
+                                uint64_t lp = rr_local_player();
+                                int32_t char_id = 0;
+                                if (lp) {
+                                    int32_t tmp = rr_i32(lp + 0x38u);
+                                    if (rr_ok()) char_id = tmp;
+                                }
+                                if (char_id) {
+                                    RR_BET_CONFIG bc;
+                                    bc.enabled    = 1;
+                                    bc.chip_index = b->bet_chip;
+                                    bc.repeat     = (b->bet_count >= 1 && b->bet_count <= 20) ? b->bet_count : 1;
+                                    bc.mode       = (b->bet_mode  >= 0 && b->bet_mode  <= 2)  ? b->bet_mode  : 0;
+                                    if (rr_roulette_place_bet(wem, rlt.winning_number, &bc, char_id))
+                                        b->bet_last_win = rlt.winning_number;
+                                }
                             }
                         }
+                        /* Reset bet_last_win when a new round starts. */
+                        if (rlt.winning_number < 0 && last_win_seen >= 0)
+                            b->bet_last_win = -1;
+                        last_win_seen = rlt.winning_number;
                     }
-                    /* Reset bet_last_win when a new round starts (number goes back to -1). */
-                    if (rlt.winning_number < 0 && last_win_seen >= 0)
-                        b->bet_last_win = -1;
-                    last_win_seen = rlt.winning_number;
                 }
             }
         }
@@ -451,7 +506,7 @@ static DWORD WINAPI menu_thread(LPVOID){
         }
         /* Wake for input immediately instead of leaving messages queued until
            the fixed sleep ends. The timeout still services telemetry. */
-        MsgWaitForMultipleObjectsEx(0, NULL, 15, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+        MsgWaitForMultipleObjectsEx(0, NULL, 5, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
     }
 
     if(g_ctl){ g_ctl->Close(); g_ctl->Release(); g_ctl=nullptr; }
