@@ -44,12 +44,15 @@
 /* WorldEntitiesModel._rouletteModels: Dictionary<int, RouletteModel> */
 #define WEM_ROULETTE_DICT_OFF  0x478u
 
-/* C# Dictionary inner layout. */
-#define DICT_ENTRIES_OFF  0x10u   /* pointer to Entry[] array inside the Dict object */
-#define DICT_COUNT_OFF    0x18u   /* int _count                                       */
-#define DICT_ENTRY_STRIDE 0x18u   /* sizeof(Entry<int, RouletteModel>)                */
-#define DICT_ENTRY_KEY    0x08u   /* int key   within entry                           */
-#define DICT_ENTRY_VAL    0x10u   /* TValue    within entry (pointer for a class)     */
+/* C# Dictionary inner layout — matches rr_unity.h U_DICT_* constants.
+ * The entries field holds a pointer to an IL2CPP array object; the actual
+ * entry data starts at array+0x20 (U_ARR_DATA), skipping the array header. */
+#define DICT_ENTRIES_OFF  0x18u   /* ptr to Entry[] array object (U_DICT_ENTRIES)     */
+#define DICT_COUNT_OFF    0x20u   /* int _count                   (U_DICT_COUNT)       */
+#define DICT_ARR_DATA     0x20u   /* offset past IL2CPP array header (U_ARR_DATA)      */
+#define DICT_ENTRY_STRIDE 0x18u   /* sizeof(Entry<int, RouletteModel>)                 */
+#define DICT_ENTRY_KEY    0x08u   /* int key   within entry                            */
+#define DICT_ENTRY_VAL    0x10u   /* TValue    within entry (pointer for a class)      */
 
 int rr_roulette_read(uint64_t world_ent, RR_ROULETTE *out)
 {
@@ -67,8 +70,9 @@ int rr_roulette_read(uint64_t world_ent, RR_ROULETTE *out)
     if (!PL(roulette_dict)) return 0;
 
     /* Step 2: Read the inner entries array pointer and count. */
-    uint64_t entries = rr_u64(roulette_dict + DICT_ENTRIES_OFF);
-    if (!PL(entries)) return 0;
+    uint64_t arr = rr_u64(roulette_dict + DICT_ENTRIES_OFF);
+    if (!PL(arr)) return 0;
+    uint64_t entries = arr + DICT_ARR_DATA;   /* skip IL2CPP array header */
 
     int32_t count = rr_i32(roulette_dict + DICT_COUNT_OFF);
     if (count <= 0 || count > 64) return 0;   /* sanity: at most a handful of roulette tables */
