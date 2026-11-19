@@ -1,4 +1,4 @@
-/* menu_webview.cpp - WebView2 host for the embedded HTML settings menu.
+﻿/* menu_webview.cpp - WebView2 host for the embedded HTML settings menu.
  *
  * A dedicated window thread hosts the page compiled into app.rc. BR_Config
  * provides settings shared with the overlay. Messages are strings:
@@ -342,6 +342,8 @@ static DWORD WINAPI menu_thread(LPVOID){
 
     BR_Config* b = br_get();
     DWORD last_telem=0;
+    DWORD last_roulette=0;
+    int32_t last_win_seen = -1;   /* track last seen WinningNumber for instant push */
     DWORD shown_at = 0;
 
     MSG msg; ZeroMemory(&msg,sizeof(msg));
@@ -372,22 +374,33 @@ static DWORD WINAPI menu_thread(LPVOID){
             if (g_ctl) g_ctl->put_IsVisible(FALSE);
             menu_failed("wait for embedded menu", HRESULT_FROM_WIN32(ERROR_TIMEOUT));
         }
-        if(g_wv && now-last_telem>500){
-            last_telem=now;
-            /* Refresh roulette telemetry while the game is attached. */
-            if (b->telem_game_pid) {
-                uint64_t wem = game_world_addr();
-                if (wem) {
-                    RR_ROULETTE rlt;
-                    if (rr_roulette_read(wem, &rlt)) {
-                        b->telem_roulette_valid       = rlt.valid;
-                        b->telem_roulette_count       = rlt.roulette_count;
-                        b->telem_roulette_winning     = rlt.winning_number;
-                        b->telem_roulette_phase       = rlt.phase_index;
-                        b->telem_roulette_phase_end   = rlt.phase_end_ms;
+        /* Fast roulette poll every 50 ms — sends an immediate telem push the
+         * instant WinningNumber flips from -1 so the UI updates before bets
+         * close, well ahead of the 500 ms regular tick. */
+        if (g_wv && b->telem_game_pid && now - last_roulette > 50) {
+            last_roulette = now;
+            uint64_t wem = game_world_addr();
+            if (wem) {
+                RR_ROULETTE rlt;
+                if (rr_roulette_read(wem, &rlt)) {
+                    b->telem_roulette_valid     = rlt.valid;
+                    b->telem_roulette_count     = rlt.roulette_count;
+                    b->telem_roulette_winning   = rlt.winning_number;
+                    b->telem_roulette_phase     = rlt.phase_index;
+                    b->telem_roulette_phase_end = rlt.phase_end_ms;
+                    /* Instant push when number just became known (was -1, now 0-36). */
+                    if (rlt.winning_number >= 0 && rlt.winning_number <= 36 &&
+                        last_win_seen < 0 && g_wv) {
+                        wv_send("telem:" + build_telem_json(b));
                     }
+                    last_win_seen = rlt.winning_number;
                 }
             }
+        }
+
+        /* Regular 500 ms telem tick for all other fields. */
+        if(g_wv && now-last_telem>500){
+            last_telem=now;
             wv_send("telem:"+build_telem_json(b));
         }
         /* Wake for input immediately instead of leaving messages queued until
