@@ -21,6 +21,7 @@
 #include "rr_mem.h"
 #include "rr_unity.h"
 #include "rr_roulette.h"
+#include "rr_roulette_bet.h"
 
 /* Include the COM declarations before the WebView2 SDK header. */
 #include <objbase.h>
@@ -115,6 +116,12 @@ static std::string build_telem_json(BR_Config* b) {
     snprintf(pebuf, sizeof(pebuf), ",\"rl_end\":%.0f",
              (double)b->telem_roulette_phase_end);
     s += pebuf;
+    /* Auto-bet state mirrored to HTML. */
+    jcat_int(s,"bet_enabled",b->bet_enabled);
+    jcat_int(s,"bet_chip",b->bet_chip);
+    jcat_int(s,"bet_count",b->bet_count);
+    jcat_int(s,"bet_mode",b->bet_mode);
+    jcat_int(s,"bet_last_win",b->bet_last_win);
     s += "}";
     return s;
 }
@@ -198,6 +205,24 @@ static HRESULT STDMETHODCALLTYPE msg_cb(ICoreWebView2* sender,
     }
     else if(cmd=="close"){
         br_set_menu_visible(0);
+    }
+    else if(cmd=="bet"){
+        /* bet:<field>:<value> - configure auto-bet from HTML. */
+        size_t c2 = body.find(':');
+        if(c2 != std::string::npos){
+            std::string bkey = body.substr(0,c2);
+            int bval = atoi(body.substr(c2+1).c_str());
+            if(bkey=="enabled"){
+                b->bet_enabled = (bval ? 1 : 0);
+                if(!bval) b->bet_last_win = -1;
+            } else if(bkey=="chip"){
+                if(bval>=0 && bval<=4) b->bet_chip = bval;
+            } else if(bkey=="count"){
+                if(bval>=1 && bval<=20) b->bet_count = bval;
+            } else if(bkey=="mode"){
+                if(bval>=0 && bval<=2) b->bet_mode = bval;
+            }
+        }
     }
     else if (cmd == "hello") {
         if (!g_page_ready) menu_log("embedded menu ready", S_OK);
@@ -392,7 +417,28 @@ static DWORD WINAPI menu_thread(LPVOID){
                     if (rlt.winning_number >= 0 && rlt.winning_number <= 36 &&
                         last_win_seen < 0 && g_wv) {
                         wv_send("telem:" + build_telem_json(b));
+                        /* Auto-bet: fire immediately on the same tick. */
+                        if (b->bet_enabled && b->bet_last_win != rlt.winning_number) {
+                            uint64_t lp = rr_local_player();
+                            int32_t char_id = 0;
+                            if (lp) {
+                                int32_t tmp = rr_i32(lp + 0x38u);
+                                if (rr_ok()) char_id = tmp;
+                            }
+                            if (char_id) {
+                                RR_BET_CONFIG bc;
+                                bc.enabled    = 1;
+                                bc.chip_index = b->bet_chip;
+                                bc.repeat     = (b->bet_count >= 1 && b->bet_count <= 20) ? b->bet_count : 1;
+                                bc.mode       = (b->bet_mode  >= 0 && b->bet_mode  <= 2)  ? b->bet_mode  : 0;
+                                if (rr_roulette_place_bet(wem, rlt.winning_number, &bc, char_id))
+                                    b->bet_last_win = rlt.winning_number;
+                            }
+                        }
                     }
+                    /* Reset bet_last_win when a new round starts (number goes back to -1). */
+                    if (rlt.winning_number < 0 && last_win_seen >= 0)
+                        b->bet_last_win = -1;
                     last_win_seen = rlt.winning_number;
                 }
             }

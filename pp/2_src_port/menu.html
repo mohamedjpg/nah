@@ -586,6 +586,55 @@ body[data-preview="1"] #preview{display:inline-block}
             </div>
             <p>The visibility switches on the Players page also apply here.</p>
           </article>
+          <!-- Auto-Bet card -->
+          <article class="card" style="grid-column:1/-1">
+            <h2>Auto-Bet</h2>
+            <p style="margin-bottom:12px;font-size:0.82rem;color:var(--dim)">
+              When a winning number is detected the cheat instantly places the configured bet.
+              Green (0) is skipped for color bets. Requires bets-open phase.
+            </p>
+
+            <!-- Chip selector -->
+            <div class="rows" style="margin-bottom:10px">
+              <div class="status"><span>Chip size</span>
+                <div style="display:flex;gap:6px;flex-wrap:wrap" id="ab-chips">
+                  <button class="ab-chip-btn" data-ci="0" onclick="abSetChip(0)">1k</button>
+                  <button class="ab-chip-btn" data-ci="1" onclick="abSetChip(1)">5k</button>
+                  <button class="ab-chip-btn" data-ci="2" onclick="abSetChip(2)">25k</button>
+                  <button class="ab-chip-btn" data-ci="3" onclick="abSetChip(3)">50k</button>
+                  <button class="ab-chip-btn" data-ci="4" onclick="abSetChip(4)">100k</button>
+                </div>
+              </div>
+              <div class="status"><span>Times (1–20)</span>
+                <input id="ab-count" type="number" min="1" max="20" value="1"
+                  style="width:70px;background:var(--surface2);border:1px solid var(--border);color:var(--fg);border-radius:6px;padding:4px 8px;font-size:0.9rem"
+                  oninput="send('bet:count:'+Math.min(20,Math.max(1,parseInt(this.value)||1)))">
+              </div>
+            </div>
+
+            <!-- Bet-type mode buttons -->
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+              <button id="ab-mode-0" class="ab-mode-btn" onclick="abSetMode(0)"
+                style="padding:6px 14px;border-radius:7px;cursor:pointer">Bet on Number</button>
+              <button id="ab-mode-1" class="ab-mode-btn" onclick="abSetMode(1)"
+                style="padding:6px 14px;border-radius:7px;cursor:pointer">Bet on Color</button>
+              <button id="ab-mode-2" class="ab-mode-btn" onclick="abSetMode(2)"
+                style="padding:6px 14px;border-radius:7px;cursor:pointer">Bet on Dozen</button>
+            </div>
+
+            <!-- Enable toggle + live status -->
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <button id="ab-enable-btn" onclick="abToggle()"
+                style="font-weight:700;min-width:110px;padding:8px 18px;border-radius:8px;border:2px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;transition:all .15s">
+                Enable
+              </button>
+              <div class="rows" style="flex:1;min-width:200px">
+                <div class="status"><span>Status</span><output id="ab-status">Disabled</output></div>
+                <div class="status"><span>Last auto-bet on</span><output id="ab-last">—</output></div>
+              </div>
+            </div>
+          </article>
+
         </div>
       </section>
 
@@ -915,6 +964,53 @@ function applyTelem(state) {
     $("rl-countdown").textContent = "—";
     $("rl-count").textContent = "0";
   }
+
+  /* Auto-bet UI sync. */
+  if (typeof state.bet_enabled !== "undefined") {
+    const en  = Number(state.bet_enabled);
+    const ci  = Number(state.bet_chip   || 0);
+    const mo  = Number(state.bet_mode   || 0);
+    const lw  = state.bet_last_win != null ? Number(state.bet_last_win) : -1;
+    const cnt = Number(state.bet_count  || 1);
+
+    /* Chip buttons highlight. */
+    document.querySelectorAll(".ab-chip-btn").forEach(b => {
+      const active = Number(b.dataset.ci) === ci;
+      b.style.background = active ? "var(--accent)"           : "var(--surface2)";
+      b.style.color       = active ? "#000"                    : "var(--fg)";
+      b.style.border      = "1px solid " + (active ? "var(--accent)" : "var(--border)");
+      b.style.padding     = "5px 12px"; b.style.borderRadius = "6px"; b.style.cursor = "pointer";
+    });
+
+    /* Mode buttons. */
+    document.querySelectorAll(".ab-mode-btn").forEach(b => {
+      const active = b.id === "ab-mode-" + mo;
+      b.style.background = active ? "#9f7aea" : "var(--surface2)";
+      b.style.color       = active ? "#fff"    : "var(--fg)";
+      b.style.border      = "1px solid " + (active ? "#9f7aea" : "var(--border)");
+    });
+
+    /* Enable button. */
+    const enableBtn = $("ab-enable-btn");
+    if (enableBtn) {
+      enableBtn.textContent      = en ? "Disable" : "Enable";
+      enableBtn.style.background = en ? "var(--accent)" : "transparent";
+      enableBtn.style.color      = en ? "#000"           : "var(--accent)";
+    }
+
+    /* Count input (only update if host changed it). */
+    const countEl = $("ab-count");
+    if (countEl && Number(countEl.value) !== cnt && document.activeElement !== countEl)
+      countEl.value = cnt;
+
+    /* Status text. */
+    const modeNames = ["Number","Color","Dozen"];
+    const chipNames  = ["1k","5k","25k","50k","100k"];
+    if ($("ab-status")) $("ab-status").textContent = en
+      ? ("Armed \u2014 " + (chipNames[ci]||"?") + " \u00d7 " + cnt + " on " + (modeNames[mo]||"?"))
+      : "Disabled";
+    if ($("ab-last")) $("ab-last").textContent = lw >= 0 ? String(lw) : "\u2014";
+  }
 }
 
 bridge && bridge.addEventListener("message", event => {
@@ -939,6 +1035,16 @@ window.addEventListener("keydown", event => {
 });
 
 paintKey();
+
+/* Auto-bet JS helpers. */
+function abSetChip(ci) { send("bet:chip:" + ci); }
+function abSetMode(mo) { send("bet:mode:" + mo); }
+function abToggle() {
+  const btn = $("ab-enable-btn");
+  const nowEnabled = btn && btn.textContent.trim() === "Enable";
+  send("bet:enabled:" + (nowEnabled ? "1" : "0"));
+}
+
 send("hello:");
 
 /* Deep link: menu.html#aim opens that page. Harmless in the overlay, useful
