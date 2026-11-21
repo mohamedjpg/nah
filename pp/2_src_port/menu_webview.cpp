@@ -23,6 +23,7 @@
 #include "rr_roulette.h"
 #include "rr_roulette_bet.h"
 #include "rr_roulette_sniper.h"
+#include "rr_cheat.h"
 #include "robrun_offsets.h"
 
 /* Include the COM declarations before the WebView2 SDK header. */
@@ -125,6 +126,15 @@ static std::string build_telem_json(BR_Config* b) {
     jcat_int(s,"bet_count",b->bet_count);
     jcat_int(s,"bet_mode",b->bet_mode);
     jcat_int(s,"bet_last_win",b->bet_last_win);
+    /* Cheat-gate survey. Read-only; the tab lists capabilities only when the
+     * gate is actually reported open. */
+    jcat_int(s,"ct_have",b->telem_cheat_have_battle);
+    jcat_int(s,"ct_known",b->telem_cheat_gate_known);
+    jcat_int(s,"ct_on",b->telem_cheat_enabled);
+    jcat_int(s,"ct_net_known",b->telem_cheat_net_known);
+    jcat_int(s,"ct_net",b->telem_cheat_net);
+    jcat_int(s,"ct_car",b->telem_cheat_spawn_car);
+    jcat_int(s,"ct_heli",b->telem_cheat_spawn_heli);
     s += "}";
     return s;
 }
@@ -379,6 +389,7 @@ static DWORD WINAPI menu_thread(LPVOID){
     int64_t  srv_phase_end  = 0;        /* cached phase_end_ms for current round  */
     int32_t  last_phase_seen = -1;      /* detect phase transitions               */
     int32_t  bet_char_id = 0;           /* cached local character id for bets      */
+    DWORD    last_cheat_probe = 0;      /* 1 Hz cheat-gate survey                  */
 
     MSG msg; ZeroMemory(&msg,sizeof(msg));
     while(msg.message!=WM_QUIT && !g_quit){
@@ -544,6 +555,44 @@ static DWORD WINAPI menu_thread(LPVOID){
         /* Regular 500 ms telem tick for all other fields. */
         if(g_wv && now-last_telem>500){
             last_telem=now;
+            /* Cheat-gate survey. Cheap (a handful of reads plus class-name
+             * compares) but pointless at 2 Hz, and the gate cannot change while
+             * a battle is running, so sample it once a second.
+             *
+             * This thread also drives the 0.4 ms fire loop, so the probe is
+             * suppressed while the table is inside its final seconds: six extra
+             * reads landing in the fire window would cost more than they are
+             * worth, and the gate is not going to change in those 3 s.
+             *
+             * remaining starts at 0, so the window test also requires a valid
+             * read in the Bets phase; otherwise it would hold forever before
+             * the first roulette sample. */
+            int fire_window = (b->telem_roulette_valid &&
+                               b->telem_roulette_phase == 0 &&
+                               b->telem_roulette_remaining >= 0 &&
+                               b->telem_roulette_remaining <= 3000);
+            if (!fire_window && now - last_cheat_probe > 1000) {
+                last_cheat_probe = now;
+                RR_CHEAT_STATE cs;
+                if (rr_cheat_read(&cs)) {
+                    b->telem_cheat_have_battle = cs.have_battle;
+                    b->telem_cheat_gate_known  = cs.gate_known;
+                    b->telem_cheat_enabled     = cs.is_enabled;
+                    b->telem_cheat_net_known   = cs.net_known;
+                    b->telem_cheat_net         = cs.net_cheat_activated;
+                    b->telem_cheat_spawn_car   = cs.spawn_car_present;
+                    b->telem_cheat_spawn_heli  = cs.spawn_heli_present;
+                } else {
+                    /* No battle yet: report unknown rather than "off". */
+                    b->telem_cheat_have_battle = 0;
+                    b->telem_cheat_gate_known  = 0;
+                    b->telem_cheat_enabled     = 0;
+                    b->telem_cheat_net_known   = 0;
+                    b->telem_cheat_net         = 0;
+                    b->telem_cheat_spawn_car   = 0;
+                    b->telem_cheat_spawn_heli  = 0;
+                }
+            }
             wv_send("telem:"+build_telem_json(b));
         }
         /* Wake for input immediately instead of leaving messages queued until

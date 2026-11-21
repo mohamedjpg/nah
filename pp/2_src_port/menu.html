@@ -385,6 +385,10 @@ body[data-preview="1"] #preview{display:inline-block}
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M3.5 3.5l1.1 1.1M11.4 11.4l1.1 1.1M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1"/></svg>
         Roulette
       </button>
+      <button type="button" role="tab" data-tab="cheat" aria-selected="false" aria-controls="cheat" tabindex="-1">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2 3 4.2v3.9c0 2.9 2.1 4.8 5 5.9 2.9-1.1 5-3 5-5.9V4.2L8 2Z"/><path d="M5.9 8.1 7.4 9.6l2.9-3"/></svg>
+        Cheat
+      </button>
     </nav>
 
     <main id="pages">
@@ -589,7 +593,7 @@ body[data-preview="1"] #preview{display:inline-block}
           <!-- Auto-Bet card -->
           <article class="card" style="grid-column:1/-1">
             <h2>Auto-Bet</h2>
-            <p style="margin-bottom:12px;font-size:0.82rem;color:var(--dim)">
+            <p style="margin-bottom:12px;font-size:.82rem;color:var(--muted)">
               When a winning number is detected the cheat instantly places the configured bet.
               Green (0) is skipped for color bets. Requires bets-open phase.
             </p>
@@ -607,7 +611,7 @@ body[data-preview="1"] #preview{display:inline-block}
               </div>
               <div class="status"><span>Times (1–20)</span>
                 <input id="ab-count" type="number" min="1" max="20" value="1"
-                  style="width:70px;background:var(--surface2);border:1px solid var(--border);color:var(--fg);border-radius:6px;padding:4px 8px;font-size:0.9rem"
+                  style="width:70px;background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 8px;font-size:.9rem"
                   oninput="send('bet:count:'+Math.min(20,Math.max(1,parseInt(this.value)||1)))">
               </div>
             </div>
@@ -670,7 +674,7 @@ body[data-preview="1"] #preview{display:inline-block}
           <article class="card">
             <h2>History</h2>
             <div id="rl-history" style="display:flex;flex-wrap:wrap;gap:6px;min-height:36px;align-items:center">
-              <span style="color:var(--dim);font-size:0.78rem">No results yet this session.</span>
+              <span style="color:var(--muted);font-size:.78rem">No results yet this session.</span>
             </div>
             <p>Last 20 results, newest on the left. Red/Black/Green colour-coded.</p>
           </article>
@@ -682,6 +686,45 @@ body[data-preview="1"] #preview{display:inline-block}
               <span><i style="--c:#1a7a3c"></i>Green: 0</span>
             </div>
             <p>Winning number is <strong>−1</strong> while bets are open; changes to 0–36 when server decides.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- Cheat. -->
+      <section id="cheat" role="tabpanel" aria-label="Cheat" hidden>
+        <div class="phead">
+          <h1>Cheat</h1>
+          <p>Survey of the game's own developer surface. <code>BattleModel.CheatModel.IsEnabled</code> is the master gate: on a developer realm the server sets it and the client unlocks the cheat menu below. This tab only <em>reads</em> that flag — it never writes memory and never sends a message.</p>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h2>Gate</h2>
+            <div id="ct-banner" style="margin-bottom:12px;padding:12px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2)">
+              <div id="ct-banner-title" style="font-size:1.05rem;font-weight:700;letter-spacing:-.2px">Waiting for battle</div>
+              <div id="ct-banner-sub" style="margin-top:4px;font-size:.8rem;color:var(--muted)">The gate is read once per second from the live battle model.</div>
+            </div>
+            <div class="rows">
+              <div class="status"><span>CheatModel.IsEnabled</span><output id="ct-gate">—</output></div>
+              <div class="status"><span>NetworkStatus.CheatActivated</span><output id="ct-net">—</output></div>
+              <div class="status"><span>Battle model</span><output id="ct-battle">—</output></div>
+              <div class="status"><span>Spawn models present</span><output id="ct-spawn">—</output></div>
+            </div>
+            <p>Two independent signals: the model flag the client gates its menu on, and the flag the server sets on the session. If they disagree, trust neither.</p>
+          </article>
+          <article class="card">
+            <h2>How this works</h2>
+            <div class="legend" style="grid-template-columns:minmax(0,1fr)">
+              <span><i style="--c:#56a8ff"></i>Every action below is a <code>Cheat*Message</code> sent client → server.</span>
+              <span><i style="--c:#ffaa00"></i>The server validates each one against your realm role; <code>IsEnabled</code> is only the client-side gate.</span>
+              <span><i style="--c:#ff5555"></i>On a realm with EOS anti-cheat, sending one is logged and attributable to your account.</span>
+            </div>
+            <p>The list is compiled from the shipped metadata, so it is the complete set of developer actions this build knows about — not a guess at what might work.</p>
+          </article>
+          <article class="card" style="grid-column:1/-1">
+            <h2>Available actions</h2>
+            <div id="ct-caps">
+              <p style="color:var(--muted);font-size:.82rem;margin:0">Not read yet — the gate is sampled once per second while a battle is live.</p>
+            </div>
           </article>
         </div>
       </section>
@@ -984,18 +1027,18 @@ function applyTelem(state) {
     /* Chip buttons highlight. */
     document.querySelectorAll(".ab-chip-btn").forEach(b => {
       const active = Number(b.dataset.ci) === ci;
-      b.style.background = active ? "var(--accent)"           : "var(--surface2)";
-      b.style.color       = active ? "#000"                    : "var(--fg)";
-      b.style.border      = "1px solid " + (active ? "var(--accent)" : "var(--border)");
+      b.style.background = active ? "var(--accent)" : "var(--surface-2)";
+      b.style.color       = active ? "#000"         : "var(--text)";
+      b.style.border      = "1px solid " + (active ? "var(--accent)" : "var(--line)");
       b.style.padding     = "5px 12px"; b.style.borderRadius = "6px"; b.style.cursor = "pointer";
     });
 
     /* Mode buttons. */
     document.querySelectorAll(".ab-mode-btn").forEach(b => {
       const active = b.id === "ab-mode-" + mo;
-      b.style.background = active ? "#9f7aea" : "var(--surface2)";
-      b.style.color       = active ? "#fff"    : "var(--fg)";
-      b.style.border      = "1px solid " + (active ? "#9f7aea" : "var(--border)");
+      b.style.background = active ? "#9f7aea" : "var(--surface-2)";
+      b.style.color       = active ? "#fff"   : "var(--text)";
+      b.style.border      = "1px solid " + (active ? "#9f7aea" : "var(--line)");
     });
 
     /* Enable button. */
@@ -1019,6 +1062,182 @@ function applyTelem(state) {
       : "Disabled";
     if ($("ab-last")) $("ab-last").textContent = lw >= 0 ? String(lw) : "\u2014";
   }
+
+  /* Cheat tab. The gate cannot be inferred from telemetry that failed to read,
+     so "unknown" is its own state and never renders as "off". */
+  if (typeof state.ct_known !== "undefined") {
+    const have   = Boolean(Number(state.ct_have));
+    const known  = Boolean(Number(state.ct_known));
+    const on     = Boolean(Number(state.ct_on));
+    const netK   = Boolean(Number(state.ct_net_known));
+    const net    = Boolean(Number(state.ct_net));
+    const car    = Boolean(Number(state.ct_car));
+    const heli   = Boolean(Number(state.ct_heli));
+
+    const banner = $("ct-banner");
+    const title  = $("ct-banner-title");
+    const sub    = $("ct-banner-sub");
+    if (banner && title && sub) {
+      if (!have) {
+        banner.style.background = "var(--surface-2)";
+        banner.style.borderColor = "var(--line)";
+        title.textContent = "Waiting for battle";
+        title.style.color = "var(--muted)";
+        sub.textContent = "No BattleModel yet. Join a session and this resolves itself.";
+      } else if (!known) {
+        banner.style.background = "var(--surface-2)";
+        banner.style.borderColor = "var(--line)";
+        title.textContent = "Gate unreadable";
+        title.style.color = "var(--muted)";
+        sub.textContent = "BattleModel resolved but CheatModel did not. Treat the realm as locked.";
+      } else if (on) {
+        banner.style.background = "#10251a";
+        banner.style.borderColor = "#1f7a45";
+        title.textContent = "Enabled \u2014 developer realm";
+        title.style.color = "#4ade80";
+        sub.textContent = "The client has unlocked its cheat surface. Everything listed below is available to send.";
+      } else {
+        banner.style.background = "#241417";
+        banner.style.borderColor = "#7a2030";
+        title.textContent = "Disabled";
+        title.style.color = "#ff8080";
+        sub.textContent = "This realm does not set IsEnabled. The client will not offer cheat actions.";
+      }
+    }
+
+    if ($("ct-gate")) {
+      $("ct-gate").textContent = known ? (on ? "true" : "false") : "unknown";
+      $("ct-gate").style.color = known ? (on ? "#4ade80" : "#ff8080") : "var(--muted)";
+    }
+    if ($("ct-net")) {
+      $("ct-net").textContent = netK ? (net ? "true" : "false") : "unknown";
+      $("ct-net").style.color = netK ? (net ? "#4ade80" : "var(--muted)") : "var(--muted)";
+    }
+    if ($("ct-battle")) $("ct-battle").textContent = have ? "resolved" : "not yet";
+    if ($("ct-spawn")) {
+      const parts = [];
+      if (car)  parts.push("car");
+      if (heli) parts.push("helicopter");
+      $("ct-spawn").textContent = parts.length ? parts.join(" + ") : "none";
+    }
+
+    /* Capability list. Only rendered when the gate is genuinely open: showing
+       the full action set on a locked realm would imply it is usable. */
+    const caps = $("ct-caps");
+    if (caps) {
+      if (!known || !on) {
+        /* Clear the built flag so a later unlock still renders the list, but
+           only rewrite the DOM on the transition: this runs at 2 Hz. */
+        caps.dataset.built = "";
+        const reason = known ? "off" : "unread";
+        if (caps.dataset.locked !== reason) {
+          caps.dataset.locked = reason;
+          caps.innerHTML = '<p style="color:var(--muted);font-size:.82rem;margin:0">Locked \u2014 ' +
+            (known ? '<code>IsEnabled</code> is false on this realm, so the client will not offer these.'
+                   : '<code>IsEnabled</code> could not be read.') + '</p>';
+        }
+      } else if (!caps.dataset.built) {
+        caps.dataset.locked = "";
+        caps.dataset.built = "1";
+        caps.innerHTML = ctCapabilitiesHTML();
+      }
+    }
+  }
+}
+
+/* The developer action set, grouped. Every name is a Cheat*Message class that
+ * this build actually ships (116 of them), so the list is the complete set the
+ * client can send - not a guess at what might work. */
+function ctCapabilitiesHTML() {
+  const groups = [
+    ["Money, points &amp; progression", [
+      "CheatAddCoinsMessage", "CheatAddCryptoCoinsMessage", "CheatAddCumulativePointsMessage",
+      "CheatAddTransactionMessage", "CheatSetBankAccountMessage", "CheatResetDebtMessage",
+      "CheatIncrementAchievementProgressMessage", "CheatResetProgressMessage",
+      "CheatSetBattlePassPointsMessage", "CheatAddClanConquestSectorOwnerMessage",
+      "CheatCurrencyExchangeFutureRatesMessage", "CheatCurrencyExchangeLimitsResetMessage"
+    ]],
+    ["Vehicles", [
+      "CheatSpawnCarMessage", "CheatSpawnHelicopterMessage", "CheatSpawnCargoMessage",
+      "CheatTeleportMessage", "CheatTeleportSpawnedCarMessage", "CheatUnlockCarMessage",
+      "CheatUnlockHelicopterMessage", "CheatSetVehicleMessage", "CheatSpawnVehicleMessage",
+      "CheatRemoveAllVehiclesWithoutOwnerMessage", "CheatSetVehicleDrownedMessage",
+      "CheatSetTempCollidersMessage", "CheatSetKinematicObjectsControllerStateChangeRequestMessage"
+    ]],
+    ["Vehicle physics overrides", [
+      "CheatSetCarBurnoutSettingsOverrideMessage", "CheatSetCarEngineSettingsOverrideMessage",
+      "CheatSetCarPhysicsDragSettingsOverrideMessage", "CheatSetCarSteeringSettingsOverrideMessage",
+      "CheatSetCarSuspensionSettingsOverrideMessage", "CheatSetCarTireFrictionSettingsOverrideMessage",
+      "CheatSetCarTransmissionSettingsOverrideMessage", "CheatSetCarUpgradesSettingsOverrideMessage",
+      "CheatSetHelicopterChassisSettingsOverrideMessage", "CheatSetHelicopterEngineSettingsOverrideMessage",
+      "CheatSetHelicopterHandlingSettingsOverrideMessage", "CheatSetHelicopterSuspensionSettingsOverrideMessage",
+      "CheatSetVehicleSuspensionSettingsOverrideMessage"
+    ]],
+    ["Combat &amp; movement", [
+      "CheatKnockdownMessage", "CheatSelfDamageMessage", "CheatSprintSpeedMessage",
+      "CheatDisableImmuneMessage", "CheatDisableMovementInertiaMessage",
+      "CheatBecomeBlindMessage", "CheatSetObserverPositionMessage",
+      "CheatShotDebugInfoMessage", "CheatSetEnabledPhysicsDebugMessage",
+      "CheatSpawnBotMessage", "CheatRemoveAllBotsMessage",
+      "CheatStartLocationEventMessage", "CheatSendGrandHeistNotificationMessage"
+    ]],
+    ["Wanted / detention / prison", [
+      "CheatChangeWantedPointsMessage", "CheatChangeDetentionPointsMessage",
+      "CheatSkipDetentionTimeMessage", "CheatSetImprisonmentYearsMessage",
+      "CheatResetImprisonmentAwardsMessage", "CheatResetRealmImprisonmentYearsMessage",
+      "CheatSelfEvictMessage", "CheatExitBattleMessage", "CheatStopBattleMessage",
+      "CheatStopRealmMessage", "CheatChangeCopSalaryMessage", "CheatCopRecruitingMessage",
+      "CheatAddRobberAuthorityMessage", "CheatInitiatePlayersCountCheckMessage",
+      "CheatDisconnectTimeoutMessage", "CheatSetDisconnectPlayersTimerMessage",
+      "CheatSetPersonalDisconnectTimerMessage"
+    ]],
+    ["Roulette", [
+      "CheatRouletteSetWinningNumberMessage", "CheatRouletteSkipPhaseTimeMessage"
+    ]],
+    ["Settlements, plots &amp; workbenches", [
+      "CheatCreateRealmMessage", "CheatBuySettlementMessage", "CheatReleaseSettlementMessage",
+      "CheatGetSettlementPlotMessage", "CheatTeleportToClosestFreePlotSpotMessage",
+      "CheatResetBuildingsMessage", "CheatUnsetBuildingsForSettlementBaseMessage",
+      "CheatAddSettlementBaseMessage", "CheatBreakPlotDefenseBlocksMessage",
+      "CheatResetMovePlotCooldownMessage", "CheatResetPointsOfInterestCooldownsMessage",
+      "CheatFillMoneyWorkbenchMessage", "CheatClearMoneyWorkbenchPoopPileMessage",
+      "CheatSetMoneyWorkbenchPoopPileCountMessage", "CheatCargoChargeWorkbenchSkipTimeMessage",
+      "CheatTimeSkipCargoExchangeWorkbenchMessage", "CheatTimeSkipCargoOpenWorkbenchMessage",
+      "CheatTimeSkipCargoProductionWorkbenchMessage", "CheatCutLaunderingCableMessage",
+      "CheatReduceIncomeDamageToOneMessage", "CheatReduceIncomeDetentionPointsToOneMessage",
+      "CheatSetCrimesCountersMessage"
+    ]],
+    ["Realms, clans &amp; shops", [
+      "CheatSetVipMessage", "CheatBuyShopPackMessage", "CheatResetClanCooldownMessage",
+      "CheatResetCodexMessage", "CheatClearUnlockedVendorTreeNodesMessage",
+      "CheatUnlockAllVendorTreeNodesMessage", "CheatUnlockAllVendorTreeNodesBySelfSectorTierMessage",
+      "CheatFillExternalInventoryMessage", "CheatAddMailMessage", "CheatSetEmotionsMessage",
+      "CheatPoopMessage", "CheatCustomizeCharacterMessage", "CheatUnlockTattoosMessage",
+      "CheatSetWeaponSkinMessage",
+      "CheatUnlockSafeDoorsMessage", "CheatLockSafeDoorsMessage", "CheatUnbindPublicIdMessage",
+      "CheatFindAndJoinRealmMessage", "CheatJoinRealmMessage", "CheatJoinRobberyRoomMessage",
+      "CheatJoinBattleRoomAsObserverMessage", "CheatGetAccessMessage", "CheatResetAccessMessage",
+      "CheatSkipGettingAccessMessage", "CheatSkipHubMessage", "CheatSkipRenameCooldownMessage",
+      "CheatSkipSettlementTaxCashLockMessage", "CheatSkipTaxTimeMessage", "CheatSkipBreachTimeMessage"
+    ]]
+  ];
+  let total = 0;
+  let html = "";
+  for (const [title, items] of groups) {
+    total += items.length;
+    html += '<div style="margin-bottom:14px">' +
+      '<div style="font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">' +
+      title + ' <span style="font-weight:400;letter-spacing:0;text-transform:none">(' + items.length + ')</span></div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+    for (const name of items)
+      html += '<code style="font-size:.74rem;padding:3px 7px;border-radius:4px;background:var(--surface-2);border:1px solid var(--line);color:var(--text)">' +
+        name + '</code>';
+    html += '</div></div>';
+  }
+  html += '<p style="color:var(--muted);font-size:.78rem;margin:0">' + total +
+    ' classes: the complete set of cheat messages this build ships. ' +
+    'Sending one is a separate, server-validated step and is not wired up here.</p>';
+  return html;
 }
 
 bridge && bridge.addEventListener("message", event => {

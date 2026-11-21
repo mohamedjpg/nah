@@ -1,0 +1,72 @@
+{
+ "RandomModel.GetNextInt": [
+  {
+   "rva": 66614086,
+   "name": "Models.Systems.CarVsCarCollisionSystem$$GetRandomInt + 0x76"
+  },
+  {
+   "rva": 66615141,
+   "name": "Models.Systems.CarVsCarCollisionSystem$$HandleCarVsCarCollision + 0x405"
+  },
+  {
+   "rva": 66615514,
+   "name": "Models.Systems.CarVsCarCollisionSystem$$HandleTurnWheelsBonnetToTrunkCollision + 0xDA"
+  }
+ ],
+ "RandomModel.GetNextLong": [
+  {
+   "rva": 68177082,
+   "name": "Models.Systems.PredictShotSystem$$Tick + 0x23A"
+  }
+ ],
+ "RandomUtils.GetNextFloat": [
+  {
+   "rva": 68177578,
+   "name": "Models.Systems.PredictShotSystem$$Tick + 0x42A"
+  },
+  {
+   "rva": 68177599,
+   "name": "Models.Systems.PredictShotSystem$$Tick + 0x43F"
+  },
+  {
+   "rva": 76381702,
+   "name": "Models.Models.Random.RandomModel$$CheckProbability + 0x86"
+  },
+  {
+   "rva": 76381902,
+   "name": "Models.Models.Random.RandomModel$$GetNextFloat + 0x7E"
+  }
+ ],
+ "RandomModel.GetNextFloat": [
+  {
+   "rva": 70652282,
+   "name": "Models.Systems.ShotArgsSystem$$ApplySpreadToShotDirection + 0x17A"
+  },
+  {
+   "rva": 70652317,
+   "name": "Models.Systems.ShotArgsSystem$$ApplySpreadToShotDirection + 0x19D"
+  },
+  {
+   "rva": 70653894,
+   "name": "Models.Systems.ShotArgsSystem$$RandomizeSpread + 0x16"
+  }
+ ],
+ "RandomUtils.GetNextInt": [
+  {
+   "rva": 76382089,
+   "name": "Models.Models.Random.RandomModel$$GetNextInt + 0x79"
+  }
+ ],
+ "RandomUtils.GetNextLong": [
+  {
+   "rva": 76382281,
+   "name": "Models.Models.Random.RandomModel$$GetNextLong + 0x79"
+  }
+ ],
+ "PCG32.GenerateState": [
+  {
+   "rva": 77849608,
+   "name": "Models.MathUtils.RandomUtils$$GenerateSeed + 0x48"
+  }
+ ]
+}

@@ -70,6 +70,9 @@ static uint64_t g_k_world;
 static uint64_t g_world;
 static uint64_t g_battle = 0;
 static uint64_t g_battle_model = 0;
+/* Game.<GameModel>; only needed for the models that hang off it (network
+ * status, realm) and never published to the renderer. */
+static uint64_t g_game_model = 0;
 static uint64_t g_views_updater = 0;
 static volatile LONG64 g_time_model;
 static volatile LONG64 g_time_world;
@@ -672,6 +675,7 @@ static int entry_roots_gom(ENTRY_ROOTS* roots) {
                 roots->world = world;
                 roots->battle = battle;
                 roots->battle_model = battle_model;
+                g_game_model = model;
                 uint64_t camera = rr_u64(battle_model + RR_OFF_BATTLE_CAMERA);
                 if (camera_validate(camera)) roots->camera = camera;
                 return 1;
@@ -1658,6 +1662,12 @@ void game_scene_debug(uint64_t* battle, uint64_t* updater, int* scanning) {
     if (updater) *updater=g_views_updater;
     if (scanning) *scanning=(int)InterlockedCompareExchange(&g_battle_scan_busy,0,0);
 }
+/* Game.<GameModel>, 0 until the entry chain has resolved. Also exposed for the
+ * read-only cheat survey, which needs models hanging off GameModel. */
+uint64_t game_game_model(void) { return g_game_model; }
+/* BattleModel itself (not the BattleEntitiesModel that game_scene_debug
+ * reports). Needed by anything reading BattleModel's own fields. */
+uint64_t game_battle_model(void) { return g_battle_model; }
 static char g_dbg[160] = "?";
 static RR_HEAP g_regions[RR_MAX_REGIONS];
 static int     g_nregions;
@@ -1840,6 +1850,9 @@ static int entry_roots_class(ENTRY_ROOTS* roots) {
     roots->world = world;
     roots->battle = be;
     roots->battle_model = bm;
+    /* Only publish GameModel once the whole chain validated, so a stale one from
+     * a previous scene cannot be handed to the cheat survey. */
+    g_game_model = model;
     uint64_t camera = rr_u64(bm + RR_OFF_BATTLE_CAMERA);
     if (camera_validate(camera)) roots->camera = camera;
     dlog("entry_roots_class world=0x%llX battle=0x%llX bm=0x%llX camera=0x%llX",
@@ -3190,6 +3203,7 @@ void game_reattach_reset(void) {
     g_k_battle = 0;
     g_battle = 0;
     g_battle_model = 0;
+    g_game_model = 0;
     g_views_updater = 0;
     g_aim_updater = 0;
     g_saved_pid = 0;

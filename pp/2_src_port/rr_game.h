@@ -232,6 +232,10 @@ int  game_dict_offset(void);
 int  game_instance_mode(void);
 uint64_t game_world_addr(void);
 void game_scene_debug(uint64_t* battle, uint64_t* updater, int* scanning);
+/* Game.<GameModel>, 0 until the entry chain has resolved. */
+uint64_t game_game_model(void);
+/* BattleModel itself; game_scene_debug() reports the BattleEntitiesModel. */
+uint64_t game_battle_model(void);
 uint64_t game_lens_debug(void);
 
 #ifdef __cplusplus

@@ -94,6 +94,16 @@ typedef struct BR_Config {
     int bet_mode;       /* 0=number 1=color 2=dozen                           */
     int bet_last_win;   /* last winning number auto-bet was attempted for     */
 
+    /* Cheat-gate survey (read-only; see rr_cheat.h). Every field is filled from
+     * the live battle model, never written back to the game. */
+    int telem_cheat_have_battle;   /* 1 = BattleModel resolved                 */
+    int telem_cheat_gate_known;    /* 1 = IsEnabled was actually readable      */
+    int telem_cheat_enabled;       /* ICheatModel.IsEnabled                    */
+    int telem_cheat_net_known;     /* 1 = CheatActivated was readable          */
+    int telem_cheat_net;           /* NetworkStatusModel.CheatActivated        */
+    int telem_cheat_spawn_car;     /* CheatSpawnCarModel present               */
+    int telem_cheat_spawn_heli;    /* CheatSpawnHelicopterModel present        */
+
 #ifdef RR_PORT_DIAGNOSTICS
     int show_vehicles;
 #endif
