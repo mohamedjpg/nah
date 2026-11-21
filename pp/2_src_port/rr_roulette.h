@@ -11,7 +11,7 @@
  *   RouletteModel.<WinningNumber>k__BF   +0x30   IPrimitiveModel<int>
  *
  *   IPrimitiveModel<T> (replicated) : value at object +0x18
- *   RoulettePhaseDescription.Index  : EnumItem.Index at object +0x28
+ *   RoulettePhaseDescription.Index  : EnumItem.Index at object +0x18
  *
  * Phase indices (RoulettePhaseDescriptions static order):
  *   0 = Bets, 1 = Rolling, 2 = Dolly, 3 = Reward  (index from EnumItem.Index)

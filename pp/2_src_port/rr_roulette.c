@@ -26,7 +26,8 @@
  *   RoulettePhaseDescription.Index (EnumItem):
  *      After resolving the Phase PrimitiveModel, the value is a pointer to
  *      a RoulettePhaseDescription (reference type EnumItem subclass).
- *      EnumItem.<Index>k__BackingField is at field 0x18 → obj+0x28.
+ *      EnumItem.<Index>k__BackingField is at memory offset 0x18 (dump.cs
+ *      offsets already include the 0x10 object header).
  */
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -56,8 +57,9 @@
 /* NoReplicationPrimitiveModel<T>.Value is field // 0x0 → at obj + IL2CPP_HDR. */
 #define NRPM_VALUE_OFF     (IL2CPP_HDR + 0x00u)   /* 0x10 */
 
-/* EnumItem.<Index>k__BackingField is field // 0x18 → at obj + 0x28. */
-#define ENUM_INDEX_OFF     0x28u
+/* EnumItem.<Index>k__BackingField is at memory offset 0x18. dump.cs field comments
+ * already include the 0x10 object header, so do not add it again. */
+#define ENUM_INDEX_OFF     0x18u
 
 /* Minimum plausible pointer. */
 #define PL(p) ((p) > 0x10000ULL && (p) < 0x7FFFFFFFFFFFULL)
@@ -186,7 +188,7 @@ int rr_roulette_read(uint64_t world_ent, RR_ROULETTE *out)
 
     /* Step 5: Phase — PrimitiveModel<RoulettePhaseDescription>* at RouletteModel+0x20.
      * The value is a RoulettePhaseDescription* (reference type).
-     * RoulettePhaseDescription is an EnumItem; its Index field is at obj+0x28. */
+     * RoulettePhaseDescription is an EnumItem; its Index field is at obj+0x18. */
     {
         uint64_t phase_prim = rr_u64(roulette_model + RM_PHASE_OFF);
         uint64_t phase_desc = read_prim_ref(phase_prim);

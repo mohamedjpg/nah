@@ -22,6 +22,7 @@
 #include "rr_unity.h"
 #include "rr_roulette.h"
 #include "rr_roulette_bet.h"
+#include "rr_roulette_sniper.h"
 
 /* Include the COM declarations before the WebView2 SDK header. */
 #include <objbase.h>
@@ -376,7 +377,7 @@ static DWORD WINAPI menu_thread(LPVOID){
     int64_t  srv_offset_ms  = 0;        /* server_ms - local_ms (GetTickCount64)  */
     int64_t  srv_phase_end  = 0;        /* cached phase_end_ms for current round  */
     int32_t  last_phase_seen = -1;      /* detect phase transitions               */
-    DWORD    hyper_last = 0;            /* GetTickCount of last hyper-poll        */
+    int32_t  bet_char_id = 0;           /* cached local character id for bets      */
 
     MSG msg; ZeroMemory(&msg,sizeof(msg));
     while(msg.message!=WM_QUIT && !g_quit){
@@ -420,16 +421,36 @@ static DWORD WINAPI menu_thread(LPVOID){
          */
         {
             ULONGLONG local_now64 = GetTickCount64();
-            /* Determine effective poll interval. */
-            DWORD poll_interval = 50;
+            /* Determine effective poll interval.
+             *
+             * GetTickCount() is ~15.6 ms granular, which is far too coarse for
+             * a sub-tick bet window, so the hyper cadence is gated on the
+             * performance counter instead.  Normal: 50 ms.  Final 3 s of Bets:
+             * ~0.4 ms. */
+            static LARGE_INTEGER qpc_freq = {0};
+            static ULONGLONG qpc_last = 0;
+            ULONGLONG qpc_now = 0;
+            int hyper = 0;
+            int due = 0;
+
+            if (!qpc_freq.QuadPart) QueryPerformanceFrequency(&qpc_freq);
+            QueryPerformanceCounter((LARGE_INTEGER*)&qpc_now);
+
             if (srv_calibrated && srv_phase_end > 0 && last_phase_seen == 0) {
                 int64_t remaining = srv_phase_end - (int64_t)(local_now64 + (ULONGLONG)srv_offset_ms);
-                if (remaining <= 2000) poll_interval = 5;
+                if (remaining <= 3000) hyper = 1;
             }
-            if (g_wv && b->telem_game_pid && (now - last_roulette > poll_interval ||
-                (poll_interval == 5 && now - hyper_last >= 5))) {
+
+            {
+                ULONGLONG delta_us = (qpc_freq.QuadPart && qpc_last)
+                    ? (qpc_now - qpc_last) * 1000000ULL / (ULONGLONG)qpc_freq.QuadPart
+                    : 2000000ULL;
+                due = hyper ? (delta_us >= 400ULL) : ((now - last_roulette) > 50);
+            }
+
+            if (g_wv && b->telem_game_pid && due) {
                 last_roulette = now;
-                if (poll_interval == 5) hyper_last = now;
+                qpc_last = qpc_now;
                 uint64_t wem = game_world_addr();
                 if (wem) {
                     RR_ROULETTE rlt;
@@ -468,26 +489,43 @@ static DWORD WINAPI menu_thread(LPVOID){
                             b->telem_roulette_remaining = (int32_t)rem;
                         }
 
-                        /* Instant push + auto-bet when number just became known. */
+                        /* Arm the sniper as soon as bets are open.  This is
+                         * where the expensive discovery happens (model walk,
+                         * static-field lookup, page alloc, thread start), so it
+                         * must never run inside the fire window.  The local
+                         * character id is resolved once and cached: it cannot
+                         * change while attached, and reading it every 0.4 ms
+                         * would cost more than the poll itself. */
+                        if (b->bet_enabled && rlt.phase_index == 0) {
+                            if (!bet_char_id) {
+                                uint64_t lp = rr_local_player();
+                                if (lp) {
+                                    int32_t tmp = rr_i32(lp + 0x38u);
+                                    if (rr_ok()) bet_char_id = tmp;
+                                }
+                            }
+                            if (bet_char_id) {
+                                RR_BET_CONFIG bc;
+                                bc.enabled    = 1;
+                                bc.chip_index = b->bet_chip;
+                                bc.repeat     = (b->bet_count >= 1 && b->bet_count <= 20) ? b->bet_count : 1;
+                                bc.mode       = (b->bet_mode  >= 0 && b->bet_mode  <= 2)  ? b->bet_mode  : 0;
+                                rr_roulette_sniper_arm(wem, &bc, bet_char_id);
+                            }
+                        }
+
+                        /* Fire the instant the number becomes visible.  No
+                         * phase gate here on purpose: checking the phase first
+                         * would cost another three reads in the one window
+                         * that matters, and AddBet is harmless if the server
+                         * has already closed the table. */
                         if (rlt.winning_number >= 0 && rlt.winning_number <= 36 &&
                             last_win_seen < 0 && g_wv) {
                             wv_send("telem:" + build_telem_json(b));
-                            if (b->bet_enabled && b->bet_last_win != rlt.winning_number) {
-                                uint64_t lp = rr_local_player();
-                                int32_t char_id = 0;
-                                if (lp) {
-                                    int32_t tmp = rr_i32(lp + 0x38u);
-                                    if (rr_ok()) char_id = tmp;
-                                }
-                                if (char_id) {
-                                    RR_BET_CONFIG bc;
-                                    bc.enabled    = 1;
-                                    bc.chip_index = b->bet_chip;
-                                    bc.repeat     = (b->bet_count >= 1 && b->bet_count <= 20) ? b->bet_count : 1;
-                                    bc.mode       = (b->bet_mode  >= 0 && b->bet_mode  <= 2)  ? b->bet_mode  : 0;
-                                    if (rr_roulette_place_bet(wem, rlt.winning_number, &bc, char_id))
-                                        b->bet_last_win = rlt.winning_number;
-                                }
+                            if (b->bet_enabled && b->bet_last_win != rlt.winning_number &&
+                                rr_roulette_sniper_armed()) {
+                                if (rr_roulette_sniper_fire(rlt.winning_number))
+                                    b->bet_last_win = rlt.winning_number;
                             }
                         }
                         /* Reset bet_last_win when a new round starts. */

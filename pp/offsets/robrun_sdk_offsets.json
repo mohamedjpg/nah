@@ -1,10 +1,10 @@
 {
   "schema": 1,
   "source": "fields.csv (registered instance offsets)",
-  "dump": "F:\\Game Dev\\Rob Run\\analysis\\dump-20261112",
+  "dump": "newasmbly (dump 2026-11-21)",
   "input_sha256": {
-    "GameAssembly.dll": "03003754353ff08380dc8e91920f2c77f7977b370d413083acfe9b4bc65c18ab",
-    "global-metadata.dat": "23bed54126a2b89e9c78cfdbd59dc3be2bc14a5817823cf057cde33984618cc9"
+    "GameAssembly.dll": "e4b191f5b15f6a005454dabdb50e1310ded98f135afe6f170fc3122f0b4ed062",
+    "global-metadata.dat": "96a860618aa0a6c5df88450d2906310e52b8f7980d210675a643fd429451a62e"
   },
   "fields": {
     "RR_OFF_WEM_CONTAINERS": {
@@ -406,7 +406,7 @@
     "RR_OFF_SLOT_DATA": {
       "assembly": "Models",
       "type": "Models.Models.BattleCharacterSlots.BattleCharacterSlotModel",
-      "field": "_data_1",
+      "field": "_data",
       "offset": 16,
       "instance_size": 32,
       "declaration": "private readonly BattleCharacterSlotData _data",
@@ -451,7 +451,7 @@
     "RR_OFF_SEATS_DATA": {
       "assembly": "Models",
       "type": "Models.Models.VehicleSeats.VehicleSeatsModel",
-      "field": "_data_1",
+      "field": "_data",
       "offset": 16,
       "instance_size": 48,
       "declaration": "private readonly ReferenceMapData<VehicleSeatSlotDescription, VehicleSeatData> _data",
@@ -578,9 +578,9 @@
       "assembly": "Game",
       "type": "Game.Game",
       "field": "GameModel",
-      "offset": 208,
+      "offset": 216,
       "instance_size": 224,
-      "declaration": "private GameModel <GameModel>k__BackingField",
+      "declaration": "private readonly GameModel <GameModel>k__BackingField",
       "dump_line": 1700248
     },
     "RR_OFF_GAME_BATTLE": {
@@ -709,5 +709,17 @@
       "declaration": "private readonly CinemachineBrain _cinemachineBrain",
       "dump_line": 329339
     }
-  }
+  },
+  "missing": [
+    {
+      "macro": "RR_OFF_CONTAINER_INV",
+      "old": 48,
+      "reason": "ContainerModel has no inventory field in the 2026-11-21 dump; macro is unused in src"
+    },
+    {
+      "macro": "RR_OFF_INVEH_VEHICLE",
+      "old": 48,
+      "reason": "InVehicleModel has only _entityId 0x10, _seatSlot 0x18, _vehicleType 0x20; macro is unused in src"
+    }
+  ]
 }

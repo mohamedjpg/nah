@@ -1,0 +1,26 @@
+version: '{build}'
+
+image: Visual Studio 2022
+
+environment:
+  # forces the build to use the VS2022 toolchain
+  VS_PATH: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community"
+
+init:
+  - ps: >
+      $ErrorActionPreference = "Stop"
+      Write-Host "=== AppVeyor environment ==="
+      $vs = Get-ChildItem "$env:VS_PATH\VC\Auxiliary\Build\vcvars64.bat" -ErrorAction SilentlyContinue
+      if ($vs) { Write-Host "Found vcvars64: $($vs.FullName)" }
+      else { Write-Error "vcvars64.bat not found" }
+
+build_script:
+  - cd src\pp\2_src_port
+  - cmd /c build_port.bat
+  - cmd /c build_aio.bat
+
+artifacts:
+  - path: src\pp\1_run\RobRunPort.exe
+    name: RobRunPort
+  - path: src\pp\1_run\RobRunAIO.exe
+    name: RobRunAIO

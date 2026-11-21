@@ -46,6 +46,7 @@ echo [5/9] rr_chain.c
 cl %CFLAGS% /c rr_chain.c /Fo:rr_chain.obj || goto fail
 cl %CFLAGS% /c rr_roulette.c /Fo:rr_roulette.obj || goto fail
 cl %CFLAGS% /c rr_roulette_bet.c /Fo:rr_roulette_bet.obj || goto fail
+cl %CFLAGS% /c rr_roulette_sniper.c /Fo:rr_roulette_sniper.obj || goto fail
 echo [6/9] rr_draw.c
 cl %CFLAGS% /c rr_draw.c /Fo:rr_draw.obj || goto fail
 cl %CFLAGS% /c rr_aim.c /Fo:rr_aim.obj || goto fail
@@ -67,7 +68,7 @@ link /nologo /SUBSYSTEM:WINDOWS /MACHINE:X64 /OUT:RobRunPort.exe ^
   rr_esp.obj rr_game.obj rr_mem.obj rr_unity.obj rr_chain.obj rr_draw.obj rr_aim.obj ^
   rr_los_geom.obj rr_los_capture.obj rr_los_runtime.obj rr_los.obj rr_spawn.obj ^
  rr_nodescan.obj rr_classscan.obj rr_find.obj rr_roulette.obj rr_roulette_bet.obj ^
-  gpu.obj menu_webview.obj app.res ^
+  rr_roulette_sniper.obj gpu.obj menu_webview.obj app.res ^
   kernel32.lib user32.lib gdi32.lib comctl32.lib advapi32.lib ole32.lib oleaut32.lib uuid.lib shell32.lib ws2_32.lib ^
   d3d11.lib dxgi.lib d2d1.lib dwrite.lib dcomp.lib d3dcompiler.lib dbghelp.lib ^
   /LIBPATH:"%WV2%\lib\x64" WebView2Loader.dll.lib || goto fail

@@ -6,7 +6,7 @@
  * path and is submitted to the server.
  *
  * Required offsets (all verified against dump.cs 2026-11-12):
- *   RouletteModel.AddBet   RVA 0x489C8A0
+ *   RouletteModel.AddBet   RVA 0x48E4BB0 (RR_RVA_ADDBET)
  *   RouletteBetDescriptions static fields:
  *     Straight[N]  = sf + 0x40 + N*8  (N = 0..36)
  *     Dozen_1_12   = sf + 0x4C8
@@ -67,6 +67,38 @@ int rr_roulette_place_bet(uint64_t world_ent, int winning,
  * attach when you have a live RouletteModel available, or let place_bet()
  * discover them lazily on the first call. */
 void rr_roulette_bet_reset_cache(void);
+
+/* ---------------------------------------------------------------------------
+ * Discovery helpers, shared with rr_roulette_sniper.c.
+ *
+ * These expose the expensive part of place_bet() (model lookup, static-field
+ * discovery, module lookup) so the sniper can pay for it once and keep only
+ * the pointer arithmetic on the hot path.  All of them are cheap once warm.
+ * --------------------------------------------------------------------------*/
+
+/* Cached first-live RouletteModel*, or 0. */
+uint64_t rr_roulette_model_ptr(void);
+
+/* Cached RouletteBetDescriptions static-fields blob, or 0. */
+uint64_t rr_roulette_bet_sf_ptr(void);
+
+/* Run the one-time discovery for this world/model/config.
+ * Returns 1 on success.  Idempotent; safe to call every round. */
+int rr_roulette_bet_prepare(uint64_t world_ent, const RR_BET_CONFIG *cfg,
+                            int32_t local_char_id);
+
+/* RouletteBetDescription* for `winning` (0-36) under `mode` (RR_BET_*).
+ * Returns 0 when the number cannot be expressed as that bet (0 for colour). */
+uint64_t rr_roulette_bet_desc(int winning, int mode);
+
+/* RouletteChipDescription* for a RR_CHIP_* index, or 0. */
+uint64_t rr_roulette_chip_desc(int chip_index);
+
+/* Chip description resolved by the last rr_roulette_bet_prepare() call. */
+uint64_t rr_roulette_prepared_chip(void);
+
+/* Absolute VA of RouletteModel.AddBet inside the game, or 0. */
+uint64_t rr_roulette_addbet_va(void);
 
 #ifdef __cplusplus
 }

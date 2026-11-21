@@ -42,22 +42,26 @@
 #include "rr_mem.h"
 #include "rr_unity.h"
 #include "rr_game.h"
+#include "robrun_offsets.h"
 
 /* ---------------------------------------------------------------------------
- * Compile-time verified offsets from dump.cs
+ * Offsets sourced from the generated header, which is regenerated from the
+ * current dump.cs. The local names stay so the call sites read the same; the
+ * values are not duplicated, so a re-dump only needs robrun_offsets.h
+ * refreshed (dump 2026-11-21: AddBet RVA moved 0x489C8A0 -> 0x48E4BB0).
  * --------------------------------------------------------------------------*/
 
 /* WorldEntitiesModel._rouletteModels */
-#define WEM_ROULETTE_DICT   0x478u
+#define WEM_ROULETTE_DICT   RR_OFF_WEM_ROULETTES
 
 /* RouletteModel fields (from rr_roulette.c). */
-#define RM_PHASE_OFF        0x20u
-#define RM_PHASE_END_OFF    0x28u
-#define RM_WIN_NUMBER_OFF   0x30u
-#define RM_BETS_BY_CHAR     0x18u   /* _betsByCharacter Dictionary<int,...> */
+#define RM_PHASE_OFF        RR_OFF_RM_PHASE
+#define RM_PHASE_END_OFF    RR_OFF_RM_PHASE_END
+#define RM_WIN_NUMBER_OFF   RR_OFF_RM_WIN_NUMBER
+#define RM_BETS_BY_CHAR     RR_OFF_RM_BETS_BY_CHAR
 
 /* AddBet RVA inside GameAssembly.dll */
-#define ADD_BET_RVA         0x489C8A0ull
+#define ADD_BET_RVA         RR_RVA_ADDBET
 
 /* IL2CPP object header size. */
 #define OBJ_HDR             0x10u
@@ -66,23 +70,24 @@
 #define PM_DATA_OFF         (OBJ_HDR + 0x00u)  /* 0x10 */
 #define PD_VALUE_OFF        0x18u
 
-/* EnumItem.<Index>k__BackingField at field 0x18 → obj+0x28 */
-#define ENUM_INDEX_OFF      0x28u
+/* EnumItem.<Index>k__BackingField: field offset 0x18 is already the memory
+ * offset (dump.cs offsets include the 0x10 object header). */
+#define ENUM_INDEX_OFF      0x18u
 
 /* RouletteBetDescriptions static-field offsets. */
-#define RBDS_STRAIGHT0      0x40u   /* Straight0; Straight[N] = 0x40 + N*8 */
-#define RBDS_DOZEN_1_12     0x4C8u
-#define RBDS_DOZEN_13_24    0x4D0u
-#define RBDS_DOZEN_25_36    0x4D8u
-#define RBDS_RED            0x508u
-#define RBDS_BLACK          0x510u
+#define RBDS_STRAIGHT0      RR_SF_BET_STRAIGHT0   /* Straight[N] = 0x40 + N*8 */
+#define RBDS_DOZEN_1_12     RR_SF_BET_DOZEN_1_12
+#define RBDS_DOZEN_13_24    RR_SF_BET_DOZEN_13_24
+#define RBDS_DOZEN_25_36    RR_SF_BET_DOZEN_25_36
+#define RBDS_RED            RR_SF_BET_RED
+#define RBDS_BLACK          RR_SF_BET_BLACK
 
 /* RouletteChipDescriptions static-field offsets. */
-#define RCDS_CHIP1K         0x08u
-#define RCDS_CHIP5K         0x10u
-#define RCDS_CHIP25K        0x18u
-#define RCDS_CHIP50K        0x20u
-#define RCDS_CHIP100K       0x28u
+#define RCDS_CHIP1K         RR_SF_CHIP_1K
+#define RCDS_CHIP5K         RR_SF_CHIP_5K
+#define RCDS_CHIP25K        RR_SF_CHIP_25K
+#define RCDS_CHIP50K        RR_SF_CHIP_50K
+#define RCDS_CHIP100K       RR_SF_CHIP_100K
 
 /* Phase indices from RoulettePhaseDescriptions. */
 #define PHASE_BETS          0
@@ -94,11 +99,15 @@
 static uint64_t g_roulette_model  = 0;   /* first live RouletteModel*     */
 static uint64_t g_bet_sf          = 0;   /* RouletteBetDescriptions sf    */
 static uint64_t g_chip_sf         = 0;   /* RouletteChipDescriptions sf   */
+static uint64_t g_addbet_va       = 0;   /* GameAssembly + ADD_BET_RVA    */
+static uint64_t g_prep_chip       = 0;   /* resolved chip desc for sniper */
 
 void rr_roulette_bet_reset_cache(void) {
     g_roulette_model = 0;
     g_bet_sf         = 0;
     g_chip_sf        = 0;
+    g_addbet_va      = 0;
+    g_prep_chip      = 0;
 }
 
 /* ---------------------------------------------------------------------------
@@ -465,4 +474,91 @@ int rr_roulette_place_bet(uint64_t world_ent, int winning,
      * the thread might still be in a cleanup epilogue.  The game process
      * is long-lived and the small leaked allocation is acceptable. */
     return placed;
+}
+
+/* ---------------------------------------------------------------------------
+ * Discovery helpers shared with rr_roulette_sniper.c.
+ *
+ * place_bet() above rebuilds all of this on every call because it has to run
+ * standalone.  The sniper instead pays for it once at arm time and then only
+ * touches cached pointers, so these entry points expose the individual steps.
+ * --------------------------------------------------------------------------*/
+
+uint64_t rr_roulette_model_ptr(void) { return g_roulette_model; }
+uint64_t rr_roulette_bet_sf_ptr(void) { return g_bet_sf; }
+uint64_t rr_roulette_addbet_va(void) { return g_addbet_va; }
+uint64_t rr_roulette_prepared_chip(void) { return g_prep_chip; }
+
+uint64_t rr_roulette_chip_desc(int chip_index) {
+    static const uint32_t chip_offsets[] = {
+        RCDS_CHIP1K, RCDS_CHIP5K, RCDS_CHIP25K, RCDS_CHIP50K, RCDS_CHIP100K
+    };
+
+    if (!pl(g_chip_sf)) return 0;
+
+    int ci = chip_index;
+    if (ci < 0 || ci > 4) ci = 0;
+    return rr_u64(g_chip_sf + chip_offsets[ci]);
+}
+
+uint64_t rr_roulette_bet_desc(int winning, int mode) {
+    if (!pl(g_bet_sf)) return 0;
+
+    switch (mode) {
+    case RR_BET_NUMBER:
+        if (winning < 0 || winning > 36) return 0;
+        return rr_u64(g_bet_sf + RBDS_STRAIGHT0 + (uint64_t)winning * 8u);
+
+    case RR_BET_COLOR: {
+        static const int red_nums[] = {
+            1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36
+        };
+        int is_red = 0;
+
+        if (winning <= 0 || winning > 36) return 0;   /* 0 is green — no colour bet */
+        for (int i = 0; i < (int)(sizeof(red_nums)/sizeof(red_nums[0])); i++)
+            if (red_nums[i] == winning) { is_red = 1; break; }
+        return rr_u64(g_bet_sf + (is_red ? RBDS_RED : RBDS_BLACK));
+    }
+
+    case RR_BET_DOZEN:
+        if (winning <= 0 || winning > 36) return 0;
+        if      (winning <= 12) return rr_u64(g_bet_sf + RBDS_DOZEN_1_12);
+        else if (winning <= 24) return rr_u64(g_bet_sf + RBDS_DOZEN_13_24);
+        else                    return rr_u64(g_bet_sf + RBDS_DOZEN_25_36);
+
+    default:
+        return 0;
+    }
+}
+
+int rr_roulette_bet_prepare(uint64_t world_ent, const RR_BET_CONFIG *cfg,
+                            int32_t local_char_id) {
+    if (!cfg || local_char_id == 0) return 0;
+
+    /* Re-resolve the model every time: the player may have walked to a
+     * different table, and a stale RouletteModel* would silently bet into a
+     * dead entity.  A dict walk is a handful of reads and only happens once
+     * per Bets phase. */
+    g_roulette_model = find_roulette_model(world_ent);
+    if (!pl(g_roulette_model)) return 0;
+
+    if (!pl(g_bet_sf))  g_bet_sf  = discover_bet_sf(g_roulette_model);
+    if (!pl(g_bet_sf))  return 0;
+
+    if (!pl(g_chip_sf)) g_chip_sf = discover_chip_sf(g_roulette_model);
+    if (!pl(g_chip_sf)) return 0;
+
+    g_prep_chip = rr_roulette_chip_desc(cfg->chip_index);
+    if (!pl(g_prep_chip)) return 0;
+
+    if (!pl(g_addbet_va)) {
+        uint64_t base = 0;
+        uint32_t size = 0;
+
+        if (!rr_module("GameAssembly.dll", &base, &size) || !base) return 0;
+        g_addbet_va = base + ADD_BET_RVA;
+    }
+
+    return pl(g_addbet_va) ? 1 : 0;
 }
