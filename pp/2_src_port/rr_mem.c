@@ -397,7 +397,7 @@ int rr_read(uint64_t addr, void* out, size_t n) {
     if (!g_dev || !g_pdioc || !out || n == 0 || n > 0x10000u) return 0;
     DRVCMD c;
     c.key = g_drvkey;
-    c.size = n;
+    c.size = (ULONG)n;      /* n <= 0x10000, checked above */
     c.pid = g_rr_pid;
     c.pad = 0;
     c.address = (ULONG_PTR)addr;
@@ -418,7 +418,7 @@ int rr_write(uint64_t addr, const void* in, size_t n) {
     if (!buf) return 0;
     DRVCMD* c = (DRVCMD*)buf;
     c->key = g_drvkey;
-    c->size = n;
+    c->size = (ULONG)n;     /* n <= 0x10000, checked above */
     c->pid = g_rr_pid;
     c->pad = 0;
     c->address = (ULONG_PTR)addr;

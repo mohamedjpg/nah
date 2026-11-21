@@ -431,7 +431,10 @@ static DWORD WINAPI menu_thread(LPVOID){
             static LARGE_INTEGER qpc_freq = {0};
             static ULONGLONG qpc_last = 0;
             ULONGLONG qpc_now = 0;
-            int hyper = 0;
+            /* NOTE: do not name this `hyper`. <rpcndr.h> (pulled in by
+             * WebView2.h) does `#define hyper __int64`, which turns the
+             * declaration into `int __int64 = 0;`. */
+            int fast_poll = 0;
             int due = 0;
 
             if (!qpc_freq.QuadPart) QueryPerformanceFrequency(&qpc_freq);
@@ -439,14 +442,14 @@ static DWORD WINAPI menu_thread(LPVOID){
 
             if (srv_calibrated && srv_phase_end > 0 && last_phase_seen == 0) {
                 int64_t remaining = srv_phase_end - (int64_t)(local_now64 + (ULONGLONG)srv_offset_ms);
-                if (remaining <= 3000) hyper = 1;
+                if (remaining <= 3000) fast_poll = 1;
             }
 
             {
                 ULONGLONG delta_us = (qpc_freq.QuadPart && qpc_last)
                     ? (qpc_now - qpc_last) * 1000000ULL / (ULONGLONG)qpc_freq.QuadPart
                     : 2000000ULL;
-                due = hyper ? (delta_us >= 400ULL) : ((now - last_roulette) > 50);
+                due = fast_poll ? (delta_us >= 400ULL) : ((now - last_roulette) > 50);
             }
 
             if (g_wv && b->telem_game_pid && due) {

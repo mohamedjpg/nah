@@ -5,7 +5,9 @@
  * mesh is uploaded as a texture below the 2D overlay; a shader expands its
  * silhouette to draw an outline.
  */
+#ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
+#endif
 #include "gpu.h"
 #include <stdio.h>
 #include <string.h>

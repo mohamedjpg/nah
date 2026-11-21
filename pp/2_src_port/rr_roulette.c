@@ -62,8 +62,7 @@
  * already include the 0x10 object header, so do not add it again. */
 #define ENUM_INDEX_OFF     RR_OFF_ENUM_INDEX
 
-/* Minimum plausible pointer. */
-#define PL(p) ((p) > 0x10000ULL && (p) < 0x7FFFFFFFFFFFULL)
+/* Minimum plausible pointer: PL() comes from rr_unity.h. */
 
 /* ---------------------------------------------------------------------------
  * read_prim_int()
