@@ -31,11 +31,9 @@ typedef struct { float x, y, z, w; } RR_Q4;
 enum { RR_REL_CLAN = 1, RR_REL_POLICE = 2 };
 enum { RR_LOCAL_CONFIRMED = 1, RR_LOCAL_ESTIMATED = 2 };
 
-/* BattleModel.WorldEntitiesModel: fallback when the primary link
- * (BattleEntitiesModel + RR_OFF_BATTLE_WORLD) is not populated yet. The
- * generated headers do not carry this field, so keep it in sync with the
- * dump: the 2026-11-12 build moved it from 0x510 to 0x518. */
-#define RR_OFF_BATTLE_WORLD_B 0x518u
+/* BattleModel.WorldEntitiesModel (0x518) is the fallback when the primary link
+ * (BattleEntitiesModel + RR_OFF_BATTLE_WORLD) is not populated yet. The macro
+ * lives in robrun_sdk_offsets.h so a re-dump only touches the generated headers. */
 
 /* A player in both groups must pass both switches. */
 static inline int rr_relationship_allowed(unsigned flags, int clan, int police) {
@@ -144,6 +142,13 @@ void game_status(char* out, size_t n);
  * cannot locate the metadata registration. */
 int game_dump_class(const char* name, FILE* out);
 int game_dump_static(const char* name, FILE* out);
+
+/* Il2CppClass* for a managed type name ("RouletteBetDescriptions", namespace
+ * optional), or 0. Uses the same name->instance scan as the ESP's own class
+ * discovery, so it needs game_init() to have run. Cached per name. This is the
+ * supported way to reach a static-field blob: it does not depend on the
+ * module RVA of the static-storage global, which is not in the metadata. */
+uint64_t game_resolve_class(const char* name);
 
 /* Loot vacuum, driven from the addresses game_snapshot's loot entries were
  * validated against.

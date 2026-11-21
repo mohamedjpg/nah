@@ -410,11 +410,20 @@ int rr_roulette_sniper_fire_count(void) { return g_fires; }
 void rr_roulette_sniper_disarm(void) {
     if (!g_armed) return;
 
-    /* Ask the stub to leave its loop; it clears go itself on the way out. */
-    write_flag(SNIP_GO, -1);
+    /* Ask the stub to leave its loop.  The stub clears `go` itself after a
+     * fire (mov qword [rbp+0x00], 0), so a single -1 can be overwritten if it
+     * lands while AddBet is still running and the thread would then spin in the
+     * game process forever.  Retry: each pass either observes the thread exit or
+     * re-arms the flag for the next loop iteration. */
+    for (int attempt = 0; attempt < 8 && g_thread; attempt++) {
+        write_flag(SNIP_GO, -1);
+        if (WaitForSingleObject(g_thread, 50) == WAIT_OBJECT_0) break;
+    }
 
     if (g_thread) {
-        WaitForSingleObject(g_thread, 300);
+        /* Still alive after ~400 ms: the stub is wedged inside AddBet.  Leave
+         * the page in place (the driver has no free-page IOCTL) but stop
+         * reporting the sniper as armed so no further fire() can touch it. */
         CloseHandle(g_thread);
     }
 

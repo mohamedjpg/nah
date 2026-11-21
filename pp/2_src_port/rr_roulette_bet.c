@@ -66,13 +66,14 @@
 /* IL2CPP object header size. */
 #define OBJ_HDR             0x10u
 
-/* PrimitiveModel<T> two-hop layout (same as rr_roulette.c). */
-#define PM_DATA_OFF         (OBJ_HDR + 0x00u)  /* 0x10 */
-#define PD_VALUE_OFF        0x18u
+/* PrimitiveModel<T>/PrimitiveData<T> two-hop layout. The macros come from
+ * robrun_offsets.h so a re-dump only touches one file. */
+#define PM_DATA_OFF         RR_OFF_PM_DATA    /* 0x10: PrimitiveModel._data  */
+#define PD_VALUE_OFF        RR_OFF_PRIM_VALUE /* 0x18: PrimitiveData._value  */
 
-/* EnumItem.<Index>k__BackingField: field offset 0x18 is already the memory
- * offset (dump.cs offsets include the 0x10 object header). */
-#define ENUM_INDEX_OFF      0x18u
+/* EnumItem.<Index>k__BackingField - the dump offset already includes the
+ * 0x10 object header. */
+#define ENUM_INDEX_OFF      RR_OFF_ENUM_INDEX
 
 /* RouletteBetDescriptions static-field offsets. */
 #define RBDS_STRAIGHT0      RR_SF_BET_STRAIGHT0   /* Straight[N] = 0x40 + N*8 */

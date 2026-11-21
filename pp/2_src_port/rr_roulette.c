@@ -37,29 +37,30 @@
 #include "rr_roulette.h"
 #include "rr_mem.h"
 #include "rr_unity.h"
+#include "robrun_offsets.h"
 
 /* WorldEntitiesModel._rouletteModels offset. */
-#define WEM_ROULETTE_DICT_OFF  0x478u
+#define WEM_ROULETTE_DICT_OFF  RR_OFF_WEM_ROULETTES
 
 /* RouletteModel backing field offsets (field offset = memory offset directly). */
-#define RM_PHASE_OFF        0x20u
-#define RM_PHASE_END_OFF    0x28u
-#define RM_WIN_NUMBER_OFF   0x30u
+#define RM_PHASE_OFF        RR_OFF_RM_PHASE
+#define RM_PHASE_END_OFF    RR_OFF_RM_PHASE_END
+#define RM_WIN_NUMBER_OFF   RR_OFF_RM_WIN_NUMBER
 
 /* IL2CPP object layout constants. */
 #define IL2CPP_HDR         0x10u   /* klass + monitor pointers = 16 bytes */
 
 /* PrimitiveModel<T>._data is field // 0x0 → at obj + IL2CPP_HDR. */
-#define PM_DATA_OFF        (IL2CPP_HDR + 0x00u)   /* 0x10 */
+#define PM_DATA_OFF        RR_OFF_PM_DATA         /* 0x10 */
 /* IPrimitiveData<T> value offset (measured, same as RR_OFF_PRIM_VALUE). */
-#define PD_VALUE_OFF       0x18u
+#define PD_VALUE_OFF       RR_OFF_PRIM_VALUE      /* 0x18 */
 
 /* NoReplicationPrimitiveModel<T>.Value is field // 0x0 → at obj + IL2CPP_HDR. */
 #define NRPM_VALUE_OFF     (IL2CPP_HDR + 0x00u)   /* 0x10 */
 
 /* EnumItem.<Index>k__BackingField is at memory offset 0x18. dump.cs field comments
  * already include the 0x10 object header, so do not add it again. */
-#define ENUM_INDEX_OFF     0x18u
+#define ENUM_INDEX_OFF     RR_OFF_ENUM_INDEX
 
 /* Minimum plausible pointer. */
 #define PL(p) ((p) > 0x10000ULL && (p) < 0x7FFFFFFFFFFFULL)

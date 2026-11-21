@@ -7,6 +7,7 @@
 #include "rr_game.h"
 #include "rr_unity.h"
 #include "rr_mem.h"
+#include "robrun_offsets.h"
 #include "robrun_sdk_offsets.h"
 #define RR_MAX_HIDE_OBJECTS 512
 typedef struct {

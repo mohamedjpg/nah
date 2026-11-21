@@ -23,6 +23,7 @@
 #include "rr_roulette.h"
 #include "rr_roulette_bet.h"
 #include "rr_roulette_sniper.h"
+#include "robrun_offsets.h"
 
 /* Include the COM declarations before the WebView2 SDK header. */
 #include <objbase.h>
@@ -500,7 +501,7 @@ static DWORD WINAPI menu_thread(LPVOID){
                             if (!bet_char_id) {
                                 uint64_t lp = rr_local_player();
                                 if (lp) {
-                                    int32_t tmp = rr_i32(lp + 0x38u);
+                                    int32_t tmp = rr_i32(lp + RR_OFF_CHAR_ID);
                                     if (rr_ok()) bet_char_id = tmp;
                                 }
                             }

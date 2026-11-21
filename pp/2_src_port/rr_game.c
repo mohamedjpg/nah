@@ -48,21 +48,14 @@ static void dlog(const char* fmt, ...) {
 #include "rr_hiding.h"
 
 /* These fields are read as packed XYZ triples below. A new SDK layout must
- * fail compilation rather than silently keep using a twelve-byte read. */
-#if RR_OFF_POS_Y != RR_OFF_POS_X + 4 || RR_OFF_POS_Z != RR_OFF_POS_X + 8 || \
-    RR_OFF_INTERACT_POS_Y != RR_OFF_INTERACT_POS_X + 4 || \
-    RR_OFF_INTERACT_POS_Z != RR_OFF_INTERACT_POS_X + 8
-#error Position fields are no longer contiguous; update the position reader.
-#endif
+ * fail compilation rather than silently keep using a twelve-byte read. The
+ * assertions live in robrun_offsets.h next to the values they guard. */
 
 #define RUNTIME_FILE "robrun_runtime.txt"
 
 /* Generic-wrapper offsets (measured, not in the metadata):
  *   PrimitiveData<T>.value +0x18, ReferenceData<T>.value +0x18,
- *   EnumItem.Name string +0x10. */
-#define RR_OFF_PRIM_VALUE 0x18
-#define RR_OFF_REF_VALUE  0x18
-#define RR_OFF_DESC_NAME  0x10
+ *   EnumItem.Name string +0x10. All three now come from robrun_offsets.h. */
 /* BattleCharacterEntityModel.SimulatedModel: the interpolated character model
  * the renderer draws (Game.Battle.EntityModel.BattleCharacter). */
 #define RR_OFF_ENTITY_SIMULATED 0x30
